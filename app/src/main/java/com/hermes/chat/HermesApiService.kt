@@ -239,8 +239,8 @@ class HermesApiService(
 
     private fun extractContent(json: String): String {
         // 流式用 "chunk"，非流式用 "content"
-        val chunkRegex = """"chunk"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)" """.toRegex()
-        val contentRegex = """"content"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)" """.toRegex()
+        val chunkRegex = """"chunk"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex()
+        val contentRegex = """"content"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex()
         val match = chunkRegex.find(json) ?: contentRegex.find(json)
         return match?.groupValues?.get(1)
             ?.replace("\\n", "\n")
