@@ -77,6 +77,7 @@ fun SettingsScreen(
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     var downloadProgress by remember { mutableStateOf(0) }
     var downloadStatus by remember { mutableStateOf("idle") } // idle, downloading, ready, error
+    var pendingInstallFile by remember { mutableStateOf<File?>(null) } // 记录已下载待安装的 APK
 
     val scope = rememberCoroutineScope()
 
@@ -121,10 +122,9 @@ fun SettingsScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            updateInfo?.let { info ->
-                val apkFile = File(context.cacheDir, "updates/hermes-${info.versionName}.apk")
-                if (apkFile.exists()) {
-                    installApk(context, apkFile)
+            pendingInstallFile?.let { file ->
+                if (file.exists()) {
+                    installApk(context, file)
                 }
             }
         } else {
@@ -183,6 +183,26 @@ fun SettingsScreen(
         val info = updateInfo ?: return
         if (apiBaseUrl.isBlank()) return
 
+        val apkFile = File(File(context.cacheDir, "updates"), "hermes-${info.versionName}.apk")
+
+        // 如果已经下载完成且待安装，直接触发安装流程
+        if (apkFile.exists() && downloadStatus == "ready") {
+            pendingInstallFile = apkFile
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (context.packageManager.canRequestPackageInstalls()) {
+                    installApk(context, apkFile)
+                } else {
+                    installPermissionLauncher.launch(Manifest.permission.REQUEST_INSTALL_PACKAGES)
+                }
+            } else {
+                installApk(context, apkFile)
+            }
+            return
+        }
+
+        // 已经下载中或已完成（但不是 ready 状态），忽略
+        if (downloadStatus == "downloading") return
+
         downloadStatus = "downloading"
         downloadProgress = 0
 
@@ -190,7 +210,6 @@ fun SettingsScreen(
             try {
                 val updateDir = File(context.cacheDir, "updates")
                 updateDir.mkdirs()
-                val apkFile = File(updateDir, "hermes-${info.versionName}.apk")
 
                 val request = Request.Builder()
                     .url(info.apkUrl)
@@ -223,6 +242,7 @@ fun SettingsScreen(
 
                 downloadStatus = "ready"
                 downloadProgress = 100
+                pendingInstallFile = apkFile
 
                 // Trigger install
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -524,6 +544,15 @@ fun SettingsScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
+                                } else if (downloadStatus == "ready") {
+                                    Button(
+                                        onClick = { downloadAndInstall() },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.Update, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("安装更新")
+                                    }
                                 } else {
                                     Button(
                                         onClick = { downloadAndInstall() },
