@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.Settings
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -117,18 +118,32 @@ fun SettingsScreen(
             .build()
     }
 
-    // Permission launcher for install
+    // Permission launcher for install - Android 8+ 需要跳转设置页面
     val installPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            pendingInstallFile?.let { file ->
-                if (file.exists()) {
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        // 用户从设置页面返回后，检查是否获得了权限
+        pendingInstallFile?.let { file ->
+            if (file.exists()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (context.packageManager.canRequestPackageInstalls()) {
+                        installApk(context, file)
+                    } else {
+                        Toast.makeText(context, "未获得安装权限", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
                     installApk(context, file)
                 }
             }
-        } else {
-            Toast.makeText(context, "需要安装权限才能更新", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun requestInstallPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+            installPermissionLauncher.launch(intent)
         }
     }
 
@@ -192,7 +207,7 @@ fun SettingsScreen(
                 if (context.packageManager.canRequestPackageInstalls()) {
                     installApk(context, apkFile)
                 } else {
-                    installPermissionLauncher.launch(Manifest.permission.REQUEST_INSTALL_PACKAGES)
+                    requestInstallPermission()
                 }
             } else {
                 installApk(context, apkFile)
@@ -249,7 +264,7 @@ fun SettingsScreen(
                     if (context.packageManager.canRequestPackageInstalls()) {
                         installApk(context, apkFile)
                     } else {
-                        installPermissionLauncher.launch(Manifest.permission.REQUEST_INSTALL_PACKAGES)
+                        requestInstallPermission()
                     }
                 } else {
                     installApk(context, apkFile)
