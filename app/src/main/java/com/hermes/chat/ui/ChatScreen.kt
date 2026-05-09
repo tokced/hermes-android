@@ -7,7 +7,11 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -305,6 +309,7 @@ fun AttachmentChip(attachment: ChatAttachment, onRemove: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageBubble(message: ChatMessage, onImageClick: (Uri) -> Unit) {
     val isUser = message.role == "user"
@@ -334,7 +339,18 @@ fun MessageBubble(message: ChatMessage, onImageClick: (Uri) -> Unit) {
             }
         }
         if (message.content.isNotEmpty() || message.isStreaming) {
-            Card(colors = CardDefaults.cardColors(containerColor = backgroundColor), modifier = Modifier.widthIn(max = 280.dp)) {
+            val context = LocalContext.current
+            Card(
+                colors = CardDefaults.cardColors(containerColor = backgroundColor),
+                modifier = Modifier.widthIn(max = 280.dp).combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clip.setPrimaryClip(ClipData.newPlainText("message", message.content))
+                        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(message.content.ifEmpty { "正在思考..." }, color = textColor)
                     if (message.isStreaming && message.content.isEmpty()) {
