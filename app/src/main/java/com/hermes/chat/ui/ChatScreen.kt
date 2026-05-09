@@ -184,9 +184,11 @@ fun ChatScreen(
                 ) {
                     Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
                     IconButton(onClick = {
-                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clip.setPrimaryClip(ClipData.newPlainText("error", error))
-                        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                        if (clip != null) {
+                            clip.setPrimaryClip(ClipData.newPlainText("error", error))
+                            Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                        }
                     }) { Icon(Icons.Default.ContentCopy, "复制", tint = MaterialTheme.colorScheme.onErrorContainer) }
                     TextButton(onClick = { viewModel.clearError() }) { Text("关闭") }
                 }
@@ -345,9 +347,11 @@ fun MessageBubble(message: ChatMessage, onImageClick: (Uri) -> Unit) {
                 modifier = Modifier.widthIn(max = 280.dp).combinedClickable(
                     onClick = {},
                     onLongClick = {
-                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clip.setPrimaryClip(ClipData.newPlainText("message", message.content))
-                        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                        if (clip != null && message.content.isNotEmpty()) {
+                            clip.setPrimaryClip(ClipData.newPlainText("message", message.content))
+                            Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
             ) {
