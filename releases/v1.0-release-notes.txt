@@ -1,0 +1,1 @@
+v1.0: Hermes Bridge API + SakuraFrp + Android APP (SSL fix, threading fix, session persistence)
