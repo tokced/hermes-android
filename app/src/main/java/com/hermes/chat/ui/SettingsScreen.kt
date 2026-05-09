@@ -184,7 +184,7 @@ fun SettingsScreen(
                         isUpdateAvailable = json.optBoolean("is_update_available", false)
                     )
                     updateInfo = info
-                    checkUpdateStatus = if (info.versionCode > versionCode) "available" else "no_update"
+                    checkUpdateStatus = if (info.isUpdateAvailable) "available" else "no_update"
                 } else {
                     checkUpdateStatus = "error"
                 }
