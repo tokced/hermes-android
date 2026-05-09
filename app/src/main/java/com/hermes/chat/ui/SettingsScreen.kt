@@ -322,7 +322,7 @@ fun SettingsScreen(
 
             // 版本信息
             Text(
-                text = "Hermes Chat v1.0.0",
+                text = "Hermes Chat v1.1.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally)

@@ -1,6 +1,10 @@
 package com.hermes.chat.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -175,6 +179,11 @@ fun ChatScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
+                    IconButton(onClick = {
+                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clip.setPrimaryClip(ClipData.newPlainText("error", error))
+                        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                    }) { Icon(Icons.Default.ContentCopy, "复制", tint = MaterialTheme.colorScheme.onErrorContainer) }
                     TextButton(onClick = { viewModel.clearError() }) { Text("关闭") }
                 }
             }
