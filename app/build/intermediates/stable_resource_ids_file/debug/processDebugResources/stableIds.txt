@@ -833,6 +833,7 @@ com.hermes.chat:string/abc_menu_space_shortcut_label = 0x7f0c000f
 com.hermes.chat:id/none = 0x7f08006f
 com.hermes.chat:attr/colorControlNormal = 0x7f030056
 com.hermes.chat:color/background_floating_material_dark = 0x7f05001d
+com.hermes.chat:xml/file_paths = 0x7f0f0000
 com.hermes.chat:color/material_grey_300 = 0x7f05003b
 com.hermes.chat:dimen/abc_action_bar_stacked_max_height = 0x7f060009
 com.hermes.chat:color/accent_material_light = 0x7f05001a

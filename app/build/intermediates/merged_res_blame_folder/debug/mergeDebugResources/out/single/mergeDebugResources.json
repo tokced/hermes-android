@@ -1,6 +1,10 @@
 [
     {
-        "merged": "com.hermes.chat.app-debug-54:/drawable_ic_launcher.xml.flat",
-        "source": "com.hermes.chat.app-main-56:/drawable/ic_launcher.xml"
+        "merged": "com.hermes.chat.app-debug-54:/xml_file_paths.xml.flat",
+        "source": "com.hermes.chat.app-main-56:/xml/file_paths.xml"
+    },
+    {
+        "merged": "/home/tokce/.gradle/daemon/8.7/com.hermes.chat.app-debug-54:/drawable_ic_launcher.xml.flat",
+        "source": "/home/tokce/.gradle/daemon/8.7/com.hermes.chat.app-main-56:/drawable/ic_launcher.xml"
     }
 ]
