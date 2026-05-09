@@ -194,6 +194,7 @@ fun SettingsScreen(
 
                 val request = Request.Builder()
                     .url(info.apkUrl)
+                    .addHeader("x-api-key", apiKey.trim())
                     .get()
                     .build()
 
