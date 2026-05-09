@@ -31,6 +31,7 @@ import androidx.core.content.FileProvider
 import com.hermes.chat.AppSettings
 import com.hermes.chat.SettingsManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -341,11 +342,14 @@ fun SettingsScreen(
             )
 
             // 连接测试
+            var testJob by remember { mutableStateOf<Job?>(null) }
             OutlinedButton(
                 onClick = {
-                    testStatus = "testing"
-                    testMessage = ""
-                    scope.launch {
+                    // 取消之前的请求
+                    testJob?.cancel()
+                    testJob = scope.launch {
+                        testStatus = "testing"
+                        testMessage = ""
                         try {
                             val url = "${apiBaseUrl.trim()}/health"
                             val request = Request.Builder()
@@ -353,15 +357,15 @@ fun SettingsScreen(
                                 .addHeader("x-api-key", apiKey.trim())
                                 .get()
                                 .build()
-                            withContext(Dispatchers.IO) {
-                                val resp = client.newCall(request).execute()
-                                if (resp.isSuccessful) {
-                                    testStatus = "success"
-                                    testMessage = "连接成功 (${resp.code})"
-                                } else {
-                                    testStatus = "error"
-                                    testMessage = "连接失败: ${resp.code}"
-                                }
+                            val resp = withContext(Dispatchers.IO) {
+                                client.newCall(request).execute()
+                            }
+                            if (resp.isSuccessful) {
+                                testStatus = "success"
+                                testMessage = "连接成功 (${resp.code})"
+                            } else {
+                                testStatus = "error"
+                                testMessage = "连接失败: ${resp.code}"
                             }
                         } catch (e: Exception) {
                             testStatus = "error"
