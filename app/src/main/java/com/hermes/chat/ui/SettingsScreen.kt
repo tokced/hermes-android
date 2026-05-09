@@ -22,16 +22,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.hermes.chat.AppSettings
 import com.hermes.chat.SettingsManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -117,6 +122,44 @@ fun SettingsScreen(
             .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
             .hostnameVerifier { _, _ -> true }
             .build()
+    }
+
+    // Keepalive ping job - 每 30s ping 一次保持 SakuraFrp 隧道活跃
+    var pingJob by remember { mutableStateOf<Job?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(apiBaseUrl) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    if (apiBaseUrl.isNotBlank() && pingJob == null) {
+                        pingJob = scope.launch {
+                            while (isActive) {
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        val req = Request.Builder()
+                                            .url("${apiBaseUrl.trim()}/ping")
+                                            .get()
+                                            .build()
+                                        client.newCall(req).execute().close()
+                                    }
+                                } catch (_: Exception) { }
+                                delay(30_000)
+                            }
+                        }
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    pingJob?.cancel()
+                    pingJob = null
+                }
+                else -> { }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            pingJob?.cancel()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     // Permission launcher for install - Android 8+ 需要跳转设置页面
