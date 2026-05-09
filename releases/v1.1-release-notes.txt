@@ -1,0 +1,1 @@
+v1.1: 修复 SSE 解析 - extractContent 匹配 chunk 字段（之前只匹配 content，导致流式响应全为空）
