@@ -170,11 +170,18 @@ class ChatViewModel(
                 return@launch
             }
 
-            val messagesToSend = listOf(mapOf("role" to "user", "content" to userText))
+            // 只发当前用户消息，Hermes 用 --resume 读自己的 DB 维护历史
+            val currentMessage = updatedMessages.lastOrNull()
+            val historyMaps = if (currentMessage != null) {
+                listOf(mapOf("role" to currentMessage.role, "content" to currentMessage.content))
+            } else {
+                emptyList()
+            }
 
             withContext(Dispatchers.IO) {
                 apiService.sendMessage(
-                    messages = messagesToSend,
+                    sessionId = _state.value.sessionId,
+                    messages = historyMaps,
                     attachments = uploadedAttachments,
                     onChunk = { chunk ->
                         // 切回主线程更新 UI

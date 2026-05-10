@@ -120,6 +120,7 @@ class HermesApiService(
 
     // 发送消息（支持图片/附件）
     fun sendMessage(
+        sessionId: String,
         messages: List<Map<String, String>>,
         attachments: List<Map<String, String>>, // [{"file_id": "xxx", "type": "image"}]
         onChunk: (String) -> Unit,
@@ -139,6 +140,7 @@ class HermesApiService(
         val requestBody = JSONObject().apply {
             put("messages", messagesArray)
             put("stream", true)
+            put("session_id", sessionId)
             if (hasAttachments) {
                 val attArray = JSONArray()
                 attachments.forEach { att ->
@@ -182,10 +184,13 @@ class HermesApiService(
                                 val data = line.removePrefix("data: ").trim()
                                 if (data == "[DONE]") break
                                 if (data.startsWith("{")) {
-                                    val content = extractContent(data)
-                                    if (content.isNotEmpty()) {
-                                        onChunk(content)
+                                    val json = JSONObject(data)
+                                    val done = json.optBoolean("done", false)
+                                    val chunk = json.optString("chunk", "")
+                                    if (chunk.isNotEmpty()) {
+                                        onChunk(chunk)
                                     }
+                                    if (done) break
                                 }
                             }
                         }

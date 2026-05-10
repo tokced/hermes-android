@@ -132,44 +132,6 @@ fun SettingsScreen(
             .build()
     }
 
-    // Keepalive ping job - 每 30s ping 一次保持 SakuraFrp 隧道活跃
-    var pingJob by remember { mutableStateOf<Job?>(null) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(apiBaseUrl) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> {
-                    if (apiBaseUrl.isNotBlank() && pingJob == null) {
-                        pingJob = scope.launch {
-                            while (isActive) {
-                                try {
-                                    withContext(Dispatchers.IO) {
-                                        val req = Request.Builder()
-                                            .url("${apiBaseUrl.trim()}/ping")
-                                            .get()
-                                            .build()
-                                        client.newCall(req).execute().close()
-                                    }
-                                } catch (_: Exception) { }
-                                delay(30_000)
-                            }
-                        }
-                    }
-                }
-                Lifecycle.Event.ON_PAUSE -> {
-                    pingJob?.cancel()
-                    pingJob = null
-                }
-                else -> { }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            pingJob?.cancel()
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
     // Permission launcher for install - Android 8+ 需要跳转设置页面
     val installPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -392,13 +354,37 @@ fun SettingsScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
 
-            // 连接测试（3秒超时）
-            var testJob by remember { mutableStateOf<Job?>(null) }
+            // 打开时自动测试一次连接
+            LaunchedEffect(apiBaseUrl) {
+                if (apiBaseUrl.isBlank()) return@LaunchedEffect
+                testStatus = "testing"
+                testMessage = ""
+                try {
+                    val url = "${apiBaseUrl.trim()}/ping"
+                    val request = Request.Builder()
+                        .url(url)
+                        .get()
+                        .build()
+                    val resp = withContext(Dispatchers.IO) {
+                        shortClient.newCall(request).execute()
+                    }
+                    if (resp.isSuccessful) {
+                        testStatus = "success"
+                        testMessage = "连接成功 (${resp.code})"
+                    } else {
+                        testStatus = "error"
+                        testMessage = "连接失败: ${resp.code}"
+                    }
+                } catch (e: Exception) {
+                    testStatus = "error"
+                    testMessage = "连接失败: ${e.message}"
+                }
+            }
+
+            // 连接测试（手动重试）
             OutlinedButton(
                 onClick = {
-                    // 取消之前的请求
-                    testJob?.cancel()
-                    testJob = scope.launch {
+                    scope.launch {
                         testStatus = "testing"
                         testMessage = ""
                         try {
