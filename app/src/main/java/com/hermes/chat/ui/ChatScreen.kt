@@ -29,12 +29,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
 import com.hermes.chat.ChatAttachment
 import com.hermes.chat.ChatMessage
 import com.hermes.chat.ChatSession
@@ -66,6 +68,27 @@ fun ChatScreen(
     LaunchedEffect(state.messages.size) {
         if (state.messages.isNotEmpty()) {
             listState.animateScrollToItem(state.messages.size - 1)
+        }
+    }
+
+    // 连接状态：null=未检测, true=已连接, false=未连接
+    var connectionOk by remember { mutableStateOf<Boolean?>(null) }
+
+    // 启动时自动检测连接
+    LaunchedEffect(Unit) {
+        if (settings.apiBaseUrl.isNotBlank()) {
+            connectionOk = apiService.ping()
+            // 如果没连接，每 5 秒重试一次，最多 3 次
+            if (connectionOk != true) {
+                repeat(3) {
+                    delay(5000)
+                    if (apiService.ping()) {
+                        connectionOk = true
+                        return@repeat
+                    }
+                }
+                connectionOk = false
+            }
         }
     }
 
@@ -146,6 +169,19 @@ fun ChatScreen(
                 }
                 Spacer(Modifier.width(4.dp))
                 Text(state.sessionTitle, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                Spacer(Modifier.width(8.dp))
+                // 连接状态指示灯
+                Box(
+                    modifier = Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val dotColor = when (connectionOk) {
+                        true -> Color(0xFF4CAF50)
+                        false -> Color(0xFFF44336)
+                        null -> Color(0xFF9E9E9E)
+                    }
+                    Surface(modifier = Modifier.size(8.dp), shape = RoundedCornerShape(4.dp), color = dotColor) {}
+                }
             }
             Row {
                 IconButton(onClick = { viewModel.clearMessages() }) {

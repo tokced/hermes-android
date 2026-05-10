@@ -39,6 +39,17 @@ class HermesApiService(
 
     private val jsonMediaType = "application/json".toMediaType()
 
+    // 连接检测（无认证，轻量 keepalive）
+    fun ping(): Boolean {
+        return try {
+            val request = Request.Builder()
+                .url("$baseUrl/ping")
+                .get()
+                .build()
+            client.newCall(request).execute().use { it.isSuccessful }
+        } catch (_: Exception) { false }
+    }
+
     // 上传文件，返回 file_id
     fun uploadFile(
         fileBytes: ByteArray,
