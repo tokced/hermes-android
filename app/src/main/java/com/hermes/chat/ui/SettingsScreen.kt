@@ -124,6 +124,14 @@ fun SettingsScreen(
             .build()
     }
 
+    // 专用于连接测试的短超时 client（3秒）
+    val shortClient = remember {
+        client.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(3, TimeUnit.SECONDS)
+            .build()
+    }
+
     // Keepalive ping job - 每 30s ping 一次保持 SakuraFrp 隧道活跃
     var pingJob by remember { mutableStateOf<Job?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -384,7 +392,7 @@ fun SettingsScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
 
-            // 连接测试
+            // 连接测试（3秒超时）
             var testJob by remember { mutableStateOf<Job?>(null) }
             OutlinedButton(
                 onClick = {
@@ -394,14 +402,13 @@ fun SettingsScreen(
                         testStatus = "testing"
                         testMessage = ""
                         try {
-                            val url = "${apiBaseUrl.trim()}/health"
+                            val url = "${apiBaseUrl.trim()}/ping"
                             val request = Request.Builder()
                                 .url(url)
-                                .addHeader("x-api-key", apiKey.trim())
                                 .get()
                                 .build()
                             val resp = withContext(Dispatchers.IO) {
-                                client.newCall(request).execute()
+                                shortClient.newCall(request).execute()
                             }
                             if (resp.isSuccessful) {
                                 testStatus = "success"

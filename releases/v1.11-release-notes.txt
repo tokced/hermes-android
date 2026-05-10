@@ -1,0 +1,5 @@
+v1.11 (versionCode 12)
+- Bridge 端自维持 keepalive：每 25s 自动 ping，防止 SakuraFrp 60s 空闲断开
+- APP 端连接检测改为异步：3 秒超时，不阻塞 UI
+- 连接测试按钮改为 ping /ping（无认证），3 秒超时
+- 版本号修复：APK 实际 versionCode=12/versionName="1.11"，与 git tag v1.11 同步

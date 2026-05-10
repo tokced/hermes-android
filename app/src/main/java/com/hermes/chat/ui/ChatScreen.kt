@@ -37,6 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import com.hermes.chat.ChatAttachment
 import com.hermes.chat.ChatMessage
 import com.hermes.chat.ChatSession
@@ -74,21 +77,27 @@ fun ChatScreen(
     // 连接状态：null=未检测, true=已连接, false=未连接
     var connectionOk by remember { mutableStateOf<Boolean?>(null) }
 
-    // 启动时自动检测连接
+    // 启动时自动检测连接（异步，不阻塞 UI）
     LaunchedEffect(Unit) {
         if (settings.apiBaseUrl.isNotBlank()) {
-            connectionOk = apiService.ping()
-            // 如果没连接，每 5 秒重试一次，最多 3 次
-            if (connectionOk != true) {
-                repeat(3) {
-                    delay(5000)
-                    if (apiService.ping()) {
-                        connectionOk = true
-                        return@repeat
-                    }
+            var retries = 0
+            suspend fun attempt(): Boolean = suspendCancellableCoroutine { cont ->
+                apiService.pingAsync { ok ->
+                    if (cont.isActive) cont.resume(ok) {}
                 }
-                connectionOk = false
             }
+            suspend fun attemptWithTimeout(): Boolean {
+                return withTimeoutOrNull(4000L) { attempt() } ?: false
+            }
+            // 首次快速检测
+            if (attemptWithTimeout()) { connectionOk = true; return@LaunchedEffect }
+            // 未连接则每 5 秒重试，最多 3 次
+            while (retries < 3) {
+                delay(5000)
+                if (attemptWithTimeout()) { connectionOk = true; return@LaunchedEffect }
+                retries++
+            }
+            connectionOk = false
         }
     }
 

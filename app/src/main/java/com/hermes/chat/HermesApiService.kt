@@ -39,7 +39,7 @@ class HermesApiService(
 
     private val jsonMediaType = "application/json".toMediaType()
 
-    // 连接检测（无认证，轻量 keepalive）
+    // 连接检测（无认证，轻量 keepalive），5秒超时，防止阻塞 UI
     fun ping(): Boolean {
         return try {
             val request = Request.Builder()
@@ -48,6 +48,26 @@ class HermesApiService(
                 .build()
             client.newCall(request).execute().use { it.isSuccessful }
         } catch (_: Exception) { false }
+    }
+
+    // 异步连接检测，3秒超时，回调在主线程
+    fun pingAsync(onResult: (Boolean) -> Unit) {
+        val shortClient = client.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(3, TimeUnit.SECONDS)
+            .build()
+        Thread {
+            try {
+                val request = Request.Builder()
+                    .url("$baseUrl/ping")
+                    .get()
+                    .build()
+                val ok = shortClient.newCall(request).execute().use { it.isSuccessful }
+                onResult(ok)
+            } catch (_: Exception) {
+                onResult(false)
+            }
+        }.start()
     }
 
     // 上传文件，返回 file_id
