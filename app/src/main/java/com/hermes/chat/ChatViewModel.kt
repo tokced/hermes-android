@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import com.hermes.chat.ServerSession
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -244,5 +245,32 @@ class ChatViewModel(
 
     fun clearError() {
         _state.value = _state.value.copy(error = null)
+    }
+
+    fun loadServerSessions() {
+        apiService.listServerSessions(
+            onSuccess = { list ->
+                val serverSessions = list.map { map ->
+                    ServerSession(
+                        id = map["id"] ?: "",
+                        updatedAt = map["updated_at"] ?: ""
+                    )
+                }
+                _state.value = _state.value.copy(serverSessions = serverSessions)
+            },
+            onError = { /* ignore, server sessions are optional */ }
+        )
+    }
+
+    fun deleteServerSession(sessionId: String) {
+        apiService.deleteServerSession(
+            sessionId = sessionId,
+            onSuccess = {
+                _state.value = _state.value.copy(
+                    serverSessions = _state.value.serverSessions.filter { it.id != sessionId }
+                )
+            },
+            onError = { /* ignore */ }
+        )
     }
 }

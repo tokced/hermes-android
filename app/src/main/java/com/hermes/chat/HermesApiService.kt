@@ -275,12 +275,54 @@ class HermesApiService(
 
     private fun extractContent(json: String): String {
         // 流式用 "chunk"，非流式用 "content"
-        val chunkRegex = """"chunk"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex()
-        val contentRegex = """"content"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""".toRegex()
+        val chunkRegex = """\"chunk\"\s*:\s*\"([^\"\\]*(?:\\.[^\"\\]*)*)\"""".toRegex()
+        val contentRegex = """\"content\"\s*:\s*\"([^\"\\]*(?:\\.[^\"\\]*)*)\"""".toRegex()
         val match = chunkRegex.find(json) ?: contentRegex.find(json)
         return match?.groupValues?.get(1)
             ?.replace("\\n", "\n")
             ?.replace("\\\"", "\"")
             ?: ""
+    }
+
+    // 列出服务器会话
+    fun listServerSessions(onSuccess: (List<Map<String, String>>) -> Unit, onError: (String) -> Unit) {
+        val request = Request.Builder()
+            .url("$baseUrl/v1/sessions")
+            .addHeader("x-api-key", apiKey)
+            .get()
+            .build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { onError(e.message ?: "网络错误") }
+            override fun onResponse(call: Call, response: Response) {
+                if (!response.isSuccessful) { onError("错误: ${response.code}"); return }
+                try {
+                    val body = response.body?.string() ?: throw Exception("空响应")
+                    val json = JSONObject(body)
+                    val sessions = json.getJSONArray("sessions")
+                    val result = mutableListOf<Map<String, String>>()
+                    for (i in 0 until sessions.length()) {
+                        val s = sessions.getJSONObject(i)
+                        result.add(mapOf("id" to s.getString("id"), "updated_at" to s.optString("updated_at", "")))
+                    }
+                    onSuccess(result)
+                } catch (e: Exception) { onError(e.message ?: "解析失败") }
+            }
+        })
+    }
+
+    // 删除服务器会话
+    fun deleteServerSession(sessionId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val request = Request.Builder()
+            .url("$baseUrl/v1/sessions/$sessionId")
+            .addHeader("x-api-key", apiKey)
+            .delete()
+            .build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { onError(e.message ?: "网络错误") }
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) { onSuccess() }
+                else { onError("错误: ${response.code}") }
+            }
+        })
     }
 }

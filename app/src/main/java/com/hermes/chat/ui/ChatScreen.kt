@@ -101,6 +101,13 @@ fun ChatScreen(
         }
     }
 
+    // 打开会话面板时加载服务器会话
+    LaunchedEffect(showSessionSheet) {
+        if (showSessionSheet) {
+            viewModel.loadServerSessions()
+        }
+    }
+
     // File pickers
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { viewModel.addAttachment(context, it, "image_${System.currentTimeMillis()}.jpg", "image/*", 0) }
@@ -137,14 +144,18 @@ fun ChatScreen(
                     }
                 }
                 Spacer(Modifier.height(16.dp))
+
+                // ===== 本地会话 =====
+                Text("本机", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                 if (sessions.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        Text("暂无会话", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(modifier = Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
+                        Text("无", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.heightIn(max = 400.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.heightIn(max = 200.dp)
                     ) {
                         items(sessions, key = { it.id }) { session ->
                             SessionItem(
@@ -156,6 +167,36 @@ fun ChatScreen(
                                     showSessionSheet = false
                                 },
                                 onDelete = { viewModel.deleteSession(session.id) }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(12.dp))
+
+                // ===== 服务器会话 =====
+                Text("服务器 (Hermes)", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                if (state.serverSessions.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
+                        Text("无", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.heightIn(max = 200.dp)
+                    ) {
+                        items(state.serverSessions, key = { it.id }) { serverSession ->
+                            ServerSessionItem(
+                                sessionId = serverSession.id,
+                                updatedAt = serverSession.updatedAt,
+                                onClick = {
+                                    // TODO: 加载服务器会话继续聊天
+                                    showSessionSheet = false
+                                },
+                                onDelete = { viewModel.deleteServerSession(serverSession.id) }
                             )
                         }
                     }
@@ -419,6 +460,76 @@ fun LoadingIndicator() {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.width(8.dp))
                 Text("Hermes 正在回复...", color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+        }
+    }
+}
+
+@Composable
+fun ServerSessionItem(
+    sessionId: String,
+    updatedAt: String,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    // 简单显示 session id 前8位
+    val displayId = if (sessionId.length > 8) sessionId.take(8) else sessionId
+    // 格式化时间
+    val timeStr = try {
+        if (updatedAt.isNotEmpty()) {
+            val dt = updatedAt.replace("T", " ").take(16)
+            dt
+        } else { "" }
+    } catch (_: Exception) { updatedAt.take(16) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = displayId,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                if (timeStr.isNotEmpty()) {
+                    Text(
+                        text = timeStr,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, "更多",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f))
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("删除", color = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; onDelete() },
+                        leadingIcon = {
+                            Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                        }
+                    )
+                }
             }
         }
     }

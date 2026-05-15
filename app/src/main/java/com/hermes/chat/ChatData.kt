@@ -34,6 +34,12 @@ data class ChatSession(
     val updatedAt: Long = System.currentTimeMillis()
 )
 
+// 服务器会话（从 Bridge /v1/sessions 获取）
+data class ServerSession(
+    val id: String,
+    val updatedAt: String = ""
+)
+
 data class ChatState(
     val sessionId: String = "",
     val sessionTitle: String = "新对话",
@@ -41,5 +47,6 @@ data class ChatState(
     val inputText: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-    val pendingAttachments: List<ChatAttachment> = emptyList()
+    val pendingAttachments: List<ChatAttachment> = emptyList(),
+    val serverSessions: List<ServerSession> = emptyList()
 )

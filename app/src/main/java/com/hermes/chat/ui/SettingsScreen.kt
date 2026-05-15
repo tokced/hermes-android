@@ -240,8 +240,13 @@ fun SettingsScreen(
                 val updateDir = File(context.cacheDir, "updates")
                 updateDir.mkdirs()
 
+                val downloadUrl = if (info.apkUrl.startsWith("/")) {
+                    "${apiBaseUrl.trim()}${info.apkUrl}"
+                } else {
+                    info.apkUrl
+                }
                 val request = Request.Builder()
-                    .url(info.apkUrl)
+                    .url(downloadUrl)
                     .addHeader("x-api-key", apiKey.trim())
                     .get()
                     .build()
