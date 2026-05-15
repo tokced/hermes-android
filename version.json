@@ -1,0 +1,10 @@
+{
+  "version_code": 13,
+  "version_name": "1.12",
+  "apk_path": "app/build/outputs/apk/debug/app-debug.apk",
+  "download_url": "https://gitee.jsdelivr.cn/gh/tokced/hermes-android@main/app/build/outputs/apk/debug/app-debug.apk",
+  "release_notes": "v1.12: ChatScreen底部面板新增服务器会话列表分区，支持查看/删除Hermes服务端会话；修复 is_update_available 对比 APP 实际 versionCode",
+  "min_version_code": 0,
+  "is_update_available": false,
+  "is_force_update": false
+}
