@@ -177,7 +177,7 @@ fun SettingsScreen(
         updateInfo = null
         scope.launch {
             try {
-                val url = "${apiBaseUrl.trim()}/v1/version"
+                val url = "${apiBaseUrl.trim()}/v1/version?current_version_code=$versionCode"
                 val request = Request.Builder()
                     .url(url)
                     .addHeader("x-api-key", apiKey.trim())
