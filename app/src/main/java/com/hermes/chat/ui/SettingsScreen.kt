@@ -250,7 +250,12 @@ fun SettingsScreen(
                 }
                 val request = Request.Builder()
                     .url(downloadUrl)
-                    .addHeader("x-api-key", apiKey.trim())
+                    .apply {
+                        // 仅当下载路径为相对路径（走 Bridge）时才加 API Key
+                        if (info.apkUrl.startsWith("/")) {
+                            addHeader("x-api-key", apiKey.trim())
+                        }
+                    }
                     .get()
                     .build()
 
