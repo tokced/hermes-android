@@ -210,7 +210,7 @@ fun SettingsScreen(
                     // APK 下载地址: raw URL
                     val latestVersionName = (latestVersionCode / 100).toString() + "." + String.format("%02d", latestVersionCode % 100)
                     // APK 下载地址: raw URL (hermes-v<versionCode>.apk)
-                    val apkUrl = "https://gitee.com/tokce/hermes-android/raw/master/apk/hermes-v${latestVersionCode}.apk"
+                    val apkUrl = "https://github.com/tokced/hermes-android/releases/download/v${latestVersionName}/app-debug.apk"
                     val info = UpdateInfo(
                         versionCode = latestVersionCode,
                         versionName = latestVersionName,
