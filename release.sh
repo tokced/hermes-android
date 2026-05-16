@@ -21,7 +21,7 @@ set -e
 
 PROJECT_DIR="/home/tokce/android-hermes"
 BRIDGE_DIR="/home/tokce/hermes-bridge"
-APK_PATH="${PROJECT_DIR}/app/build/outputs/apk/debug/app-debug.apk"
+APK_PATH="${PROJECT_DIR}/app/build/outputs/apk/debug/hermes-${VERSION_NAME}.apk"
 GITHUB_REPO="tokced/hermes-android"
 BRIDGE_VERSION_JSON="${BRIDGE_DIR}/version.json"
 GRADLE_FILE="${PROJECT_DIR}/app/build.gradle.kts"
@@ -68,27 +68,26 @@ echo "新 tag:          ${TAG_NAME}"
 echo "releaseNotes:   ${RELEASE_NOTES}"
 echo "============================================"
 
-# 1. 检查 APK
-if [ ! -f "$APK_PATH" ]; then
-    echo "[错误] APK 不存在: ${APK_PATH}"
-    echo "请先运行: cd ${PROJECT_DIR} && ./gradlew assembleDebug"
-    exit 1
-fi
-echo "[1/11] APK 存在: $(du -h $APK_PATH | cut -f1)"
+# 1. 先更新版本号
+sed -i "s/versionCode = [0-9]*/versionCode = ${NEXT_CODE}/" "$GRADLE_FILE"
+sed -i "s/versionName = \"[^\"]*\"/versionName = \"${VERSION_NAME}\"/" "$GRADLE_FILE"
+echo "[1/11] build.gradle.kts 更新完成 (versionCode=${NEXT_CODE}, versionName=${VERSION_NAME})"
 
-# 2. 检查 git 状态
+# 2. 编译
+cd "${PROJECT_DIR}"
+./gradlew assembleDebug
+APK_NAME="hermes-${VERSION_NAME}.apk"
+cp app/build/outputs/apk/debug/app-debug.apk "${PROJECT_DIR}/${APK_NAME}"
+echo "[2/11] 编译完成，APK: ${APK_NAME}"
+
+# 3. 检查 git 状态
 UNCOMMITTED=$(git status --porcelain)
 if [ -n "$UNCOMMITTED" ]; then
     echo "[错误] 有未提交的更改，请先 commit"
     echo "$UNCOMMITTED"
     exit 1
 fi
-echo "[2/11] Git 工作区干净"
-
-# 3. 更新 build.gradle.kts
-sed -i "s/versionCode = [0-9]*/versionCode = ${NEXT_CODE}/" "$GRADLE_FILE"
-sed -i "s/versionName = \"[^\"]*\"/versionName = \"${VERSION_NAME}\"/" "$GRADLE_FILE"
-echo "[3/11] build.gradle.kts 更新完成 (versionCode=${NEXT_CODE}, versionName=${VERSION_NAME})"
+echo "[3/11] Git 工作区干净"
 
 # 4. Git add + commit
 git add -A
@@ -112,7 +111,7 @@ gh release create "$TAG_NAME" \
 echo "[7/11] GitHub Release 创建完成"
 
 # 8. 上传 APK
-gh release upload "$TAG_NAME" "$APK_PATH" --clobber --repo "$GITHUB_REPO"
+gh release upload "$TAG_NAME" "${PROJECT_DIR}/${APK_NAME}" --clobber --repo "$GITHUB_REPO"
 echo "[8/11] APK 上传完成"
 
 # 9. 标记为 Latest
@@ -120,7 +119,7 @@ gh release edit "$TAG_NAME" --latest --repo "$GITHUB_REPO"
 echo "[9/11] 标记为 Latest 完成"
 
 # 10. 更新 Bridge version.json
-DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG_NAME}/app-debug.apk"
+DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG_NAME}/${APK_NAME}"
 cat > "$BRIDGE_VERSION_JSON" << EOF
 {
   "version_code": ${NEXT_CODE},
