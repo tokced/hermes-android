@@ -209,8 +209,8 @@ fun SettingsScreen(
                     val isUpdateAvailable = latestVersionCode > versionCode
                     // APK 下载地址: raw URL
                     val latestVersionName = (latestVersionCode / 100).toString() + "." + String.format("%02d", latestVersionCode % 100)
-                    // APK 下载地址: raw URL (hermes-v<versionCode>.apk)
-                    val apkUrl = "https://github.com/tokced/hermes-android/releases/download/v${latestVersionName}/hermes-${latestVersionName}.apk"
+                    // APK 下载地址: 通过 Bridge 代理，从 GitHub 中转下载
+                    val apkUrl = "${apiBaseUrl.removeSuffix("/")}/v1/apk"
                     val info = UpdateInfo(
                         versionCode = latestVersionCode,
                         versionName = latestVersionName,
