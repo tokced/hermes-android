@@ -300,6 +300,14 @@ class ChatViewModel(
                     sessionTitle = updatedSession.title,
                     messages = chatMessages
                 )
+                // 建立本地 session ID → Hermes session ID 映射
+                // 这样后续发送消息时 Bridge 能找到对应的服务器会话
+                apiService.linkServerSession(
+                    sessionId = newSession.id,
+                    hermesSessionId = serverSessionId,
+                    onSuccess = { /* mapping saved */ },
+                    onError = { /* ignore, sending will fall back to new Hermes session */ }
+                )
             },
             onError = { msg -> onError(msg) }
         )

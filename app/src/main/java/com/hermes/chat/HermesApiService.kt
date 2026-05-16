@@ -355,4 +355,23 @@ class HermesApiService(
             }
         })
     }
+
+    // 将手机 session 关联到服务器 Hermes session（用于加载后继续对话）
+    fun linkServerSession(sessionId: String, hermesSessionId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val formBody = FormBody.Builder()
+            .add("hermes_session_id", hermesSessionId)
+            .build()
+        val request = Request.Builder()
+            .url("$baseUrl/v1/sessions/$sessionId/link")
+            .addHeader("x-api-key", apiKey)
+            .post(formBody)
+            .build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { onError(e.message ?: "网络错误") }
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) { onSuccess() }
+                else { onError("错误: ${response.code}") }
+            }
+        })
+    }
 }
