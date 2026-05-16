@@ -177,10 +177,10 @@ fun SettingsScreen(
         updateInfo = null
         scope.launch {
             try {
-                val url = "${apiBaseUrl.trim()}/v1/version?current_version_code=$versionCode"
+                // 通过 Gitee API 获取 version.json（不走 CDN，绕过 DNS 劫持）
+                val giteeApiUrl = "https://gitee.com/api/v5/repos/tokce/hermes-android/contents/version.json?ref=master"
                 val request = Request.Builder()
-                    .url(url)
-                    .addHeader("x-api-key", apiKey.trim())
+                    .url(giteeApiUrl)
                     .get()
                     .build()
                 val resp = withContext(Dispatchers.IO) {
@@ -189,13 +189,16 @@ fun SettingsScreen(
                 if (resp.isSuccessful) {
                     val body = resp.body?.string() ?: throw Exception("空响应")
                     val json = JSONObject(body)
+                    val contentBase64 = json.getString("content")
+                    val contentJson = JSONObject(String(java.util.Base64.getDecoder().decode(contentBase64.replace("\n", ""))))
+                    val latestVersionCode = contentJson.getInt("version_code")
                     val info = UpdateInfo(
-                        versionCode = json.getInt("version_code"),
-                        versionName = json.getString("version_name"),
-                        apkUrl = json.getString("apk_url"),
-                        releaseNotes = json.getString("release_notes"),
-                        minVersionCode = json.optInt("min_version_code", 0),
-                        isUpdateAvailable = json.optBoolean("is_update_available", false)
+                        versionCode = latestVersionCode,
+                        versionName = contentJson.getString("version_name"),
+                        apkUrl = contentJson.getString("download_url"),
+                        releaseNotes = contentJson.optString("release_notes", ""),
+                        minVersionCode = contentJson.optInt("min_version_code", 0),
+                        isUpdateAvailable = latestVersionCode > versionCode
                     )
                     updateInfo = info
                     checkUpdateStatus = if (info.isUpdateAvailable) "available" else "no_update"

@@ -68,25 +68,33 @@ git clone --depth 1 "https://${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/${GITEE_REP
     echo "[错误] Gitee 仓库克隆失败，请确认仓库存在且 Token 有权限"
     exit 1
 }
+mkdir -p "$GITEE_DIR/app/build/outputs/apk/debug/"
 cp "$VERSION_JSON_PATH" "$GITEE_DIR/version.json"
 cp "$APK_PATH" "$GITEE_DIR/app/build/outputs/apk/debug/app-debug.apk"
-mkdir -p "$GITEE_DIR/app/build/outputs/apk/debug/"
 echo "[3/6] 文件复制到 Gitee 本地副本"
 
 # 5. 提交并推送
 cd "$GITEE_DIR"
+# 设置 git 使用内置凭据存储
+GITEE_URL="https://tokce:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/${GITEE_REPO}.git"
 git config user.email "tokce@example.com"
 git config user.name "tokce"
 git add -A
 git commit -m "v${VERSION_NAME}: ${RELEASE_NOTES}"
-git push origin main
+# 获取 Gitee 仓库的默认分支名
+DEFAULT_BRANCH=$(curl -s "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}" -H "Authorization: token ${GITEE_TOKEN}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('default_branch') or 'master')")
+echo "Gitee 默认分支: $DEFAULT_BRANCH"
+
+# 克隆后重命名本地分支为 Gitee 的默认分支名
+git branch -m master "$DEFAULT_BRANCH" 2>/dev/null || true
+git push "$GITEE_URL" "$DEFAULT_BRANCH"
 echo "[4/6] Gitee 仓库已更新"
 
 # 6. 创建 Gitee Release
 TAG_NAME="v${VERSION_NAME}"
 # 检查 tag 是否存在，不存在则创建
 git tag "$TAG_NAME" 2>/dev/null || true
-git push origin "$TAG_NAME" 2>/dev/null || true
+git push "$GITEE_URL" "$TAG_NAME"
 
 # 调用 Gitee API 创建 Release
 RESPONSE=$(curl -s -X POST \
@@ -95,7 +103,8 @@ RESPONSE=$(curl -s -X POST \
     -d "{
         \"tag_name\": \"${TAG_NAME}\",
         \"name\": \"Hermes Android ${VERSION_NAME}\",
-        \"body\": \"v${VERSION_NAME}: ${RELEASE_NOTES}\"
+        \"body\": \"v${VERSION_NAME}: ${RELEASE_NOTES}\",
+        \"target_commitish\": \"master\"
     }" \
     "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases")
 
