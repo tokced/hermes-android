@@ -193,10 +193,12 @@ fun ChatScreen(
                                 sessionId = serverSession.id,
                                 updatedAt = serverSession.updatedAt,
                                 onClick = {
-                                    // TODO: 加载服务器会话继续聊天
+                                    viewModel.loadServerSession(
+                                        serverSessionId = serverSession.id,
+                                        onError = { /* ignore */ }
+                                    )
                                     showSessionSheet = false
-                                },
-                                onDelete = { viewModel.deleteServerSession(serverSession.id) }
+                                }
                             )
                         }
                     }
@@ -469,10 +471,8 @@ fun LoadingIndicator() {
 fun ServerSessionItem(
     sessionId: String,
     updatedAt: String,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
-    var showMenu by remember { mutableStateOf(false) }
     // 简单显示 session id 前8位
     val displayId = if (sessionId.length > 8) sessionId.take(8) else sessionId
     // 格式化时间
@@ -513,24 +513,12 @@ fun ServerSessionItem(
                     )
                 }
             }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, "更多",
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f))
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("删除", color = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; onDelete() },
-                        leadingIcon = {
-                            Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
-                        }
-                    )
-                }
-            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "加载",
+                tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

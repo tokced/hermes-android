@@ -273,4 +273,35 @@ class ChatViewModel(
             onError = { /* ignore */ }
         )
     }
+
+    // 加载服务器会话到本地（手机切换到服务器会话）
+    fun loadServerSession(serverSessionId: String, onError: (String) -> Unit) {
+        apiService.getServerSessionHistory(
+            sessionId = serverSessionId,
+            onSuccess = { messages ->
+                // 将服务器消息转换为本地 ChatMessage
+                val chatMessages = messages.map { m ->
+                    ChatMessage(
+                        role = m["role"] ?: "user",
+                        content = m["content"] ?: ""
+                    )
+                }
+                // 创建新的本地会话来承载服务器会话
+                val newSession = sessionManager.createNewSession()
+                val updatedSession = newSession.copy(
+                    title = "服务器会话 ${serverSessionId.take(8)}",
+                    messages = chatMessages
+                )
+                sessionManager.saveSession(updatedSession)
+                loadSessions()
+                // 切换到新创建的本地会话
+                _state.value = _state.value.copy(
+                    sessionId = newSession.id,
+                    sessionTitle = updatedSession.title,
+                    messages = chatMessages
+                )
+            },
+            onError = { msg -> onError(msg) }
+        )
+    }
 }

@@ -325,4 +325,34 @@ class HermesApiService(
             }
         })
     }
+
+    // 获取服务器会话历史消息
+    fun getServerSessionHistory(sessionId: String, onSuccess: (List<Map<String, String>>) -> Unit, onError: (String) -> Unit) {
+        val request = Request.Builder()
+            .url("$baseUrl/v1/sessions/$sessionId/history")
+            .addHeader("x-api-key", apiKey)
+            .get()
+            .build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { onError(e.message ?: "网络错误") }
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    try {
+                        val body = response.body?.string() ?: throw Exception("空响应")
+                        val json = JSONObject(body)
+                        val messages = json.getJSONArray("messages")
+                        val result = mutableListOf<Map<String, String>>()
+                        for (i in 0 until messages.length()) {
+                            val m = messages.getJSONObject(i)
+                            result.add(mapOf(
+                                "role" to m.getString("role"),
+                                "content" to m.getString("content")
+                            ))
+                        }
+                        onSuccess(result)
+                    } catch (e: Exception) { onError(e.message ?: "解析失败") }
+                } else { onError("错误: ${response.code}") }
+            }
+        })
+    }
 }
