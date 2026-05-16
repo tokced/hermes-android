@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import org.json.JSONObject
 
 data class AppSettings(
-    val apiBaseUrl: String = "http://127.0.0.1:8000",
+    val apiBaseUrl: String = "https://api.988987.xyz",
     val apiKey: String = "hermes-bridge-secret-key-change-me",
     val darkMode: Boolean = false,
     val streamResponse: Boolean = true,
@@ -29,7 +29,7 @@ class SettingsManager(context: Context) {
 
     fun loadSettings(): AppSettings {
         return AppSettings(
-            apiBaseUrl = prefs.getString(KEY_API_BASE_URL, "http://127.0.0.1:8000") ?: "http://127.0.0.1:8000",
+            apiBaseUrl = prefs.getString(KEY_API_BASE_URL, "https://api.988987.xyz") ?: "https://api.988987.xyz",
             apiKey = prefs.getString(KEY_API_KEY, "hermes-bridge-secret-key-change-me") ?: "",
             darkMode = prefs.getBoolean(KEY_DARK_MODE, false),
             streamResponse = prefs.getBoolean(KEY_STREAM_RESPONSE, true),
