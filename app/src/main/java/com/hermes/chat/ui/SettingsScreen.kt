@@ -190,20 +190,15 @@ fun SettingsScreen(
                     val body = resp.body?.string() ?: throw Exception("空响应")
                     val files = org.json.JSONArray(body)
                     var latestVersionCode = 0
-                    var latestVersionName = ""
-                    var latestFileName = ""
                     for (i in 0 until files.length()) {
                         val file = files.getJSONObject(i)
                         val name = file.getString("name")
-                        // 文件名格式: hermes-X.XX.apk
-                        val match = Regex("hermes-(\\d+)\\.(\\d+)\\.apk").find(name)
+                        // 文件名格式: hermes-v<versionCode>.apk (如 hermes-v14.apk)
+                        val match = Regex("hermes-v(\\d+)\\.apk").find(name)
                         if (match != null) {
-                            val code = match.groupValues[1].toInt() * 100 + match.groupValues[2].toInt()
+                            val code = match.groupValues[1].toInt()
                             if (code > latestVersionCode) {
                                 latestVersionCode = code
-                                // 还原 versionName 格式 X.XX
-                                latestVersionName = "${match.groupValues[1]}.${match.groupValues[2]}"
-                                latestFileName = name
                             }
                         }
                     }
@@ -213,7 +208,9 @@ fun SettingsScreen(
                     }
                     val isUpdateAvailable = latestVersionCode > versionCode
                     // APK 下载地址: raw URL
-                    val apkUrl = "https://gitee.com/tokce/hermes-android/raw/master/apk/${latestFileName}"
+                    val latestVersionName = (latestVersionCode / 100).toString() + "." + String.format("%02d", latestVersionCode % 100)
+                    // APK 下载地址: raw URL (hermes-v<versionCode>.apk)
+                    val apkUrl = "https://gitee.com/tokce/hermes-android/raw/master/apk/hermes-v${latestVersionCode}.apk"
                     val info = UpdateInfo(
                         versionCode = latestVersionCode,
                         versionName = latestVersionName,

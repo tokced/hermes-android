@@ -43,7 +43,7 @@ if [ ! -f "$APK_PATH" ]; then
     echo "[错误] APK 不存在: $APK_PATH"
     exit 1
 fi
-APK_FILENAME="hermes-${VERSION_NAME}.apk"
+APK_FILENAME="hermes-v${VERSION_CODE}.apk"
 echo "[1/4] APK: $(du -h $APK_PATH | cut -f1) -> ${APK_FILENAME}"
 
 # 3. 克隆 Gitee 仓库并同步文件到 /apk/ 目录
