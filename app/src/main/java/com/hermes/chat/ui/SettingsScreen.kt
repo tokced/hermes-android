@@ -177,8 +177,8 @@ fun SettingsScreen(
         updateInfo = null
         scope.launch {
             try {
-                // 通过 Gitee API 获取 version.json（不走 CDN，绕过 DNS 劫持）
-                val giteeApiUrl = "https://gitee.com/api/v5/repos/tokce/hermes-android/contents/version.json?ref=master"
+                // 通过 Gitee API 列出 /apk/ 目录，从文件名解析版本号
+                val giteeApiUrl = "https://gitee.com/api/v5/repos/tokce/hermes-android/contents/apk?ref=master"
                 val request = Request.Builder()
                     .url(giteeApiUrl)
                     .get()
@@ -188,17 +188,39 @@ fun SettingsScreen(
                 }
                 if (resp.isSuccessful) {
                     val body = resp.body?.string() ?: throw Exception("空响应")
-                    val json = JSONObject(body)
-                    val contentBase64 = json.getString("content")
-                    val contentJson = JSONObject(String(java.util.Base64.getDecoder().decode(contentBase64.replace("\n", ""))))
-                    val latestVersionCode = contentJson.getInt("version_code")
+                    val files = org.json.JSONArray(body)
+                    var latestVersionCode = 0
+                    var latestVersionName = ""
+                    var latestFileName = ""
+                    for (i in 0 until files.length()) {
+                        val file = files.getJSONObject(i)
+                        val name = file.getString("name")
+                        // 文件名格式: hermes-X.XX.apk
+                        val match = Regex("hermes-(\\d+)\\.(\\d+)\\.apk").find(name)
+                        if (match != null) {
+                            val code = match.groupValues[1].toInt() * 100 + match.groupValues[2].toInt()
+                            if (code > latestVersionCode) {
+                                latestVersionCode = code
+                                // 还原 versionName 格式 X.XX
+                                latestVersionName = "${match.groupValues[1]}.${match.groupValues[2]}"
+                                latestFileName = name
+                            }
+                        }
+                    }
+                    if (latestVersionCode == 0) {
+                        checkUpdateStatus = "error"
+                        return@launch
+                    }
+                    val isUpdateAvailable = latestVersionCode > versionCode
+                    // APK 下载地址: raw URL
+                    val apkUrl = "https://gitee.com/tokce/hermes-android/raw/master/apk/${latestFileName}"
                     val info = UpdateInfo(
                         versionCode = latestVersionCode,
-                        versionName = contentJson.getString("version_name"),
-                        apkUrl = contentJson.getString("download_url"),
-                        releaseNotes = contentJson.optString("release_notes", ""),
-                        minVersionCode = contentJson.optInt("min_version_code", 0),
-                        isUpdateAvailable = latestVersionCode > versionCode
+                        versionName = latestVersionName,
+                        apkUrl = apkUrl,
+                        releaseNotes = "新版本 v${latestVersionName}",
+                        minVersionCode = 0,
+                        isUpdateAvailable = isUpdateAvailable
                     )
                     updateInfo = info
                     checkUpdateStatus = if (info.isUpdateAvailable) "available" else "no_update"
