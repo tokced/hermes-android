@@ -11,8 +11,8 @@ android {
         applicationId = "com.hermes.chat"
         minSdk = 26
         targetSdk = 34
-        versionCode = 18
-        versionName = "1.18"
+        versionCode = 19
+        versionName = "1.19"
     }
 
     buildFeatures {

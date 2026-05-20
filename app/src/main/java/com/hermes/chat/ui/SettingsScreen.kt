@@ -53,7 +53,8 @@ import javax.net.ssl.X509TrustManager
 data class UpdateInfo(
     val versionCode: Int,
     val versionName: String,
-    val apkUrl: String,
+    val apkUrl: String,      // 相对路径或绝对路径
+    val downloadUrl: String,  // Bridge 本地 APK 下载路径（/apk/hermes-v{code}.apk）
     val releaseNotes: String,
     val minVersionCode: Int,
     val isUpdateAvailable: Boolean
@@ -177,45 +178,36 @@ fun SettingsScreen(
         updateInfo = null
         scope.launch {
             try {
-                // 通过 Gitee API 列出 /apk/ 目录，从文件名解析版本号
-                val giteeApiUrl = "https://gitee.com/api/v5/repos/tokce/hermes-android/contents/apk?ref=master"
-                val request = Request.Builder()
-                    .url(giteeApiUrl)
+                // 通过 Bridge /v1/version 获取最新版本信息
+                val versionCheckUrl = "${apiBaseUrl.removeSuffix("/")}/v1/version"
+                val versionRequest = Request.Builder()
+                    .url(versionCheckUrl)
                     .get()
-                    .build()
-                val resp = withContext(Dispatchers.IO) {
-                    client.newCall(request).execute()
-                }
-                if (resp.isSuccessful) {
-                    val body = resp.body?.string() ?: throw Exception("空响应")
-                    val files = org.json.JSONArray(body)
-                    var latestVersionCode = 0
-                    for (i in 0 until files.length()) {
-                        val file = files.getJSONObject(i)
-                        val name = file.getString("name")
-                        // 文件名格式: hermes-v<versionCode>.apk (如 hermes-v14.apk)
-                        val match = Regex("hermes-v(\\d+)\\.apk").find(name)
-                        if (match != null) {
-                            val code = match.groupValues[1].toInt()
-                            if (code > latestVersionCode) {
-                                latestVersionCode = code
-                            }
+                    .apply {
+                        if (apiKey.isNotBlank()) {
+                            addHeader("x-api-key", apiKey.trim())
                         }
                     }
-                    if (latestVersionCode == 0) {
-                        checkUpdateStatus = "error"
-                        return@launch
-                    }
+                    .build()
+                val versionResp = withContext(Dispatchers.IO) {
+                    client.newCall(versionRequest).execute()
+                }
+                if (versionResp.isSuccessful) {
+                    val respBody = versionResp.body?.string() ?: throw Exception("空响应")
+                    val json = org.json.JSONObject(respBody)
+                    val latestVersionCode = json.getInt("version_code")
+                    val latestVersionName = json.getString("version_name")
+                    val downloadUrlFromBridge = json.getString("download_url")
+                    val releaseNotes = json.getString("release_notes")
                     val isUpdateAvailable = latestVersionCode > versionCode
-                    // APK 下载地址: raw URL
-                    val latestVersionName = (latestVersionCode / 100).toString() + "." + String.format("%02d", latestVersionCode % 100)
-                    // APK 下载地址: 通过 Bridge 代理，从 GitHub 中转下载
-                    val apkUrl = "${apiBaseUrl.removeSuffix("/")}/v1/apk"
+                    // downloadUrl: Bridge 本地 APK 直链
+                    val downloadUrl = "${apiBaseUrl.removeSuffix("/")}${downloadUrlFromBridge}"
                     val info = UpdateInfo(
                         versionCode = latestVersionCode,
                         versionName = latestVersionName,
-                        apkUrl = apkUrl,
-                        releaseNotes = "新版本 v${latestVersionName}",
+                        apkUrl = versionCheckUrl,
+                        downloadUrl = downloadUrl,
+                        releaseNotes = releaseNotes,
                         minVersionCode = 0,
                         isUpdateAvailable = isUpdateAvailable
                     )
@@ -262,18 +254,16 @@ fun SettingsScreen(
                 val updateDir = File(context.cacheDir, "updates")
                 updateDir.mkdirs()
 
-                val downloadUrl = if (info.apkUrl.startsWith("/")) {
-                    "${apiBaseUrl.trim()}${info.apkUrl}"
+                val downloadUrl = if (info.downloadUrl.startsWith("/")) {
+                    "${apiBaseUrl.trim()}${info.downloadUrl}"
                 } else {
-                    info.apkUrl
+                    info.downloadUrl
                 }
                 val request = Request.Builder()
                     .url(downloadUrl)
                     .apply {
-                        // 仅当下载路径为相对路径（走 Bridge）时才加 API Key
-                        if (info.apkUrl.startsWith("/")) {
-                            addHeader("x-api-key", apiKey.trim())
-                        }
+                        // downloadUrl 是 Bridge 本地路径（无需 API Key）
+                        // 不需要加 x-api-key
                     }
                     .get()
                     .build()

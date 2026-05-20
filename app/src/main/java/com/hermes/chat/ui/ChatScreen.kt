@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.selection.selectable
@@ -66,6 +67,21 @@ fun ChatScreen(
     // Session sheet state
     var showSessionSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+
+    // 多选反馈状态
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedMessageIndices by remember { mutableStateOf(setOf<Int>()) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+    var feedbackDesc by remember { mutableStateOf("") }
+    var feedbackStatus by remember { mutableStateOf("idle") } // idle, submitting, success, error
+    var feedbackError by remember { mutableStateOf("") }
+
+    // Get current app version
+    val versionName = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+        } catch (e: Exception) { "?" }
+    }
 
     // Auto-scroll
     LaunchedEffect(state.messages.size) {
@@ -239,6 +255,19 @@ fun ChatScreen(
                 IconButton(onClick = { viewModel.clearMessages() }) {
                     Icon(Icons.Default.DeleteSweep, "清空")
                 }
+                if (selectedMessageIndices.isNotEmpty()) {
+                    IconButton(onClick = {
+                        showFeedbackDialog = true
+                    }) {
+                        Icon(Icons.Default.BugReport, "提交反馈")
+                    }
+                    IconButton(onClick = {
+                        selectionMode = false
+                        selectedMessageIndices = emptySet()
+                    }) {
+                        Icon(Icons.Default.Close, "取消选择")
+                    }
+                }
                 IconButton(onClick = onNavigateToSettings) {
                     Icon(Icons.Default.Settings, "设置")
                 }
@@ -251,8 +280,47 @@ fun ChatScreen(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(state.messages) { message ->
-                MessageBubble(message = message, onImageClick = {})
+            items(state.messages.size) { index ->
+                val message = state.messages[index]
+                val isSelected = index in selectedMessageIndices
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (selectionMode) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = {
+                                selectedMessageIndices = if (it) {
+                                    selectedMessageIndices + index
+                                } else {
+                                    selectedMessageIndices - index
+                                }
+                            }
+                        )
+                    }
+                    MessageBubble(
+                        message = message,
+                        onImageClick = {},
+                        isSelected = isSelected,
+                        isSelectionMode = selectionMode,
+                        onLongClick = {
+                            if (selectionMode) {
+                                selectedMessageIndices = if (isSelected) {
+                                    selectedMessageIndices - index
+                                } else {
+                                    selectedMessageIndices + index
+                                }
+                                if (selectedMessageIndices.isEmpty()) {
+                                    selectionMode = false
+                                }
+                            } else {
+                                selectionMode = true
+                                selectedMessageIndices = setOf(index)
+                            }
+                        }
+                    )
+                }
             }
             if (state.isLoading && state.messages.lastOrNull()?.role == "user") {
                 item { LoadingIndicator() }
@@ -324,6 +392,89 @@ fun ChatScreen(
                 Text("发送")
             }
         }
+    }
+
+    // ---- 反馈弹窗 ----
+    if (showFeedbackDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (feedbackStatus != "submitting") {
+                    showFeedbackDialog = false
+                    feedbackDesc = ""
+                    feedbackError = ""
+                }
+            },
+            title = { Text("提交问题反馈") },
+            text = {
+                Column {
+                    Text("已选 ${selectedMessageIndices.size} 条消息", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = feedbackDesc,
+                        onValueChange = { feedbackDesc = it },
+                        label = { Text("补充说明（可选）") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 4,
+                        enabled = feedbackStatus != "submitting"
+                    )
+                    if (feedbackStatus == "error") {
+                        Spacer(Modifier.height(4.dp))
+                        Text(feedbackError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (feedbackStatus == "success") {
+                        Spacer(Modifier.height(4.dp))
+                        Text("提交成功！", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                if (feedbackStatus != "submitting" && feedbackStatus != "success") {
+                    Button(
+                        onClick = {
+                            feedbackStatus = "submitting"
+                            val msgs = selectedMessageIndices.sorted().map { idx ->
+                                val m = state.messages[idx]
+                                mapOf("role" to m.role, "content" to m.content)
+                            }
+                            apiService.submitBugFeedback(
+                                messages = msgs,
+                                description = feedbackDesc,
+                                appVersion = versionName,
+                                onSuccess = { bugId ->
+                                    feedbackStatus = "success"
+                                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                        showFeedbackDialog = false
+                                        feedbackDesc = ""
+                                        feedbackError = ""
+                                        feedbackStatus = "idle"
+                                        selectionMode = false
+                                        selectedMessageIndices = emptySet()
+                                    }, 2000)
+                                },
+                                onError = { err ->
+                                    feedbackStatus = "error"
+                                    feedbackError = err
+                                }
+                            )
+                        },
+                        enabled = selectedMessageIndices.isNotEmpty()
+                    ) {
+                        Text("提交")
+                    }
+                }
+            },
+            dismissButton = {
+                if (feedbackStatus != "submitting" && feedbackStatus != "success") {
+                    TextButton(onClick = {
+                        showFeedbackDialog = false
+                        feedbackDesc = ""
+                        feedbackError = ""
+                    }) {
+                        Text("取消")
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -401,10 +552,17 @@ fun AttachmentChip(attachment: ChatAttachment, onRemove: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageBubble(message: ChatMessage, onImageClick: (Uri) -> Unit) {
+fun MessageBubble(
+    message: ChatMessage,
+    onImageClick: (Uri) -> Unit,
+    isSelected: Boolean = false,
+    onLongClick: () -> Unit = {},
+    isSelectionMode: Boolean = false
+) {
     val isUser = message.role == "user"
     val backgroundColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
     val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else backgroundColor
 
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
         if (message.attachments.isNotEmpty()) {
@@ -432,13 +590,17 @@ fun MessageBubble(message: ChatMessage, onImageClick: (Uri) -> Unit) {
             val context = LocalContext.current
             Card(
                 colors = CardDefaults.cardColors(containerColor = backgroundColor),
+                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                 modifier = Modifier.widthIn(max = 280.dp).combinedClickable(
-                    onClick = {},
+                    onClick = { onLongClick() },
                     onLongClick = {
-                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                        if (clip != null && message.content.isNotEmpty()) {
-                            clip.setPrimaryClip(ClipData.newPlainText("message", message.content))
-                            Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                        onLongClick()
+                        if (!isSelectionMode) {
+                            val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            if (clip != null && message.content.isNotEmpty()) {
+                                clip.setPrimaryClip(ClipData.newPlainText("message", message.content))
+                                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 )

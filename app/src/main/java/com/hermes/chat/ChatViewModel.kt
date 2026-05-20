@@ -187,12 +187,14 @@ class ChatViewModel(
                     onChunk = { chunk ->
                         // 切回主线程更新 UI
                         viewModelScope.launch {
-                            _state.value = _state.value.copy(
-                                messages = _state.value.messages.map {
-                                    if (it == assistantMessage) it.copy(content = it.content + chunk)
-                                    else it
-                                }
-                            )
+                            val msgs = _state.value.messages.toMutableList()
+                            // 按 reference 找到 assistant message（不能用 == 比较，因为 data class == 比较所有字段，
+                            // map 后新对象的 content 已变，与原始 assistantMessage 变量不等，导致后续 chunk 全丢失）
+                            val idx = msgs.indexOfLast { it.role == "assistant" && it.isStreaming }
+                            if (idx >= 0) {
+                                msgs[idx] = msgs[idx].copy(content = msgs[idx].content + chunk)
+                                _state.value = _state.value.copy(messages = msgs)
+                            }
                         }
                     },
                     onComplete = {

@@ -374,4 +374,45 @@ class HermesApiService(
             }
         })
     }
+
+    // 提交 bug 反馈
+    fun submitBugFeedback(
+        messages: List<Map<String, String>>,
+        description: String,
+        appVersion: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val messagesArray = JSONArray()
+        messages.forEach { msg ->
+            val obj = JSONObject()
+            obj.put("role", msg["role"])
+            obj.put("content", msg["content"])
+            messagesArray.put(obj)
+        }
+        val body = JSONObject().apply {
+            put("messages", messagesArray)
+            put("description", description)
+            put("app_version", appVersion)
+        }.toString().toRequestBody(jsonMediaType)
+
+        val request = Request.Builder()
+            .url("$baseUrl/v1/debug/feedback")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("x-api-key", apiKey)
+            .post(body)
+            .build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { onError(e.message ?: "网络错误") }
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    try {
+                        val respBody = response.body?.string() ?: throw Exception("空响应")
+                        val json = JSONObject(respBody)
+                        onSuccess(json.getString("bug_id"))
+                    } catch (e: Exception) { onError(e.message ?: "解析失败") }
+                } else { onError("错误: ${response.code}") }
+            }
+        })
+    }
 }
